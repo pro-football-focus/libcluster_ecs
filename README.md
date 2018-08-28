@@ -10,6 +10,10 @@ This strategy uses [ex_aws](https://github.com/ex-aws/ex_aws) to
 query the describe services and describe task APIs. Access to this API should
 be granted to the. See the ExAws docs for additional configuration options.
 
+* EC2 Container Service ListTasks
+* EC2 Container Service DiscribeTasks
+
+
 ```
 config :libcluster,
   topologies: [
