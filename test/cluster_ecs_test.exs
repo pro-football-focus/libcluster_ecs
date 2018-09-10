@@ -8,13 +8,13 @@ defmodule ClusterEcsTest do
       topology: ClusterEcs.Strategy,
       config: [
         cluster: "arn:aws:ecs:us-east-2:915236037149:cluster/staging-ecs-cluster",
-        service_name: "arn:aws:ecs:us-east-2:915236037149:service/staging-Services-156KAXMIKGQM4-TrainingDat-1NRHKTLNL87CB-Service-MYM7LHA3VHBR",
+        service_name: "-TrainingDat-",
         region: "us-east-2",
         app_prefix: "mega-maid",
       ]
     }
 
     assert {:ok, ips} = ClusterEcs.Strategy.get_nodes(state)
-    assert MapSet.difference(MapSet.new([:"mega-maid@10.1.140.197", :"mega-maid@10.1.166.169"]), ips) == MapSet.new([])
+    assert MapSet.difference(MapSet.new([:"mega-maid@10.1.123.163", :"mega-maid@10.1.164.239"]), ips) == MapSet.new([])
   end
 end

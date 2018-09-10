@@ -116,9 +116,12 @@ defmodule ClusterEcs.Strategy do
 
     cond do
       service_name != "" and region != "" ->
-        with {:ok, list_task_body} <- ExAws.request(list_tasks(cluster, service_name), region: region),
+        with {:ok, list_service_body} <- list_services(cluster, region),
+             {:ok, service_arns} <- extract_service_arns(list_service_body),
+             {:ok, service_arn} <- find_service_arn(service_arns, service_name),
+             {:ok, list_task_body} <- list_tasks(cluster, service_arn, region),
              {:ok, task_arns} <- extract_task_arns(list_task_body),
-             {:ok, desc_task_body} <- ExAws.request(describe_tasks(cluster, task_arns), region: region),
+             {:ok, desc_task_body} <- describe_tasks(cluster, task_arns, region),
              {:ok, ips} <- extract_ips(desc_task_body) do
                resp = ips |> Enum.map(&(ip_to_nodename(&1, app_prefix)))
 
@@ -139,20 +142,49 @@ defmodule ClusterEcs.Strategy do
     end
   end
 
-  defp list_tasks(cluster, service_arn) do
+  defp list_services(cluster, region) do
+    params = %{
+      "cluster" => cluster,
+    }
+    query("ListServices", params)
+    |> ExAws.request(region: region)
+    |> list_services(cluster, region, [])
+  end
+
+  defp list_services({:ok, %{"nextToken" => next_token, "serviceArns" => service_arns}}, cluster, region, accum) when not is_nil(next_token) do
+    params = %{
+      "cluster" => cluster,
+      "nextToken" => next_token,
+    }
+    query("ListServices", params)
+    |> ExAws.request(region: region)
+    |> list_services(cluster, region, accum ++ service_arns)
+  end
+  defp list_services({:ok, %{"serviceArns" => service_arns}}, _cluster, _region, accum) do
+    {:ok, %{"serviceArns" => accum ++ service_arns}}
+  end
+  defp list_services({:error, message}, _cluster, _region, _accum) do
+    {:error, message}
+  end
+
+
+  defp list_tasks(cluster, service_arn, region) do
     params = %{
       "cluster" => cluster,
       "serviceName" => service_arn,
+      "desiredStatus" => "RUNNING",
     }
     query("ListTasks", params)
+    |> ExAws.request(region: region)
   end
 
-  defp describe_tasks(cluster, task_arns) do
+  defp describe_tasks(cluster, task_arns, region) do
     params = %{
       "cluster" => cluster,
       "tasks" => task_arns,
     }
     query("DescribeTasks", params)
+    |> ExAws.request(region: region)
   end
 
   @namespace "AmazonEC2ContainerServiceV20141113"
@@ -171,7 +203,22 @@ defmodule ClusterEcs.Strategy do
   end
 
   defp extract_task_arns(%{"taskArns" => arns}), do: {:ok, arns}
-  defp extract_task_arns(_), do: {:error, "unknown task arns"}
+  defp extract_task_arns(_), do: {:error, "unknown task arns response"}
+
+  defp extract_service_arns(%{"serviceArns" => arns}), do: {:ok, arns}
+  defp extract_service_arns(_), do: {:error, "unknown service arns response"}
+
+  defp find_service_arn(service_arns, service_name) when is_list(service_arns) do
+    with {:ok, regex} <- Regex.compile(service_name) do
+      service_arns
+      |> Enum.find(&(Regex.match?(regex, &1)))
+      |> case do
+        nil -> {:error, "no service matching #{service_name} found"}
+        arn -> {:ok, arn}
+      end
+    end
+  end
+  defp find_service_arn(_, _), do: {:error, "no service arns returned"}
 
   defp extract_ips(%{"tasks" => tasks}) do
     ips =
