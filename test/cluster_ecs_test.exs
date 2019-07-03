@@ -8,9 +8,9 @@ defmodule ClusterEcsTest do
       topology: ClusterEcs.Strategy,
       config: [
         cluster: "arn:aws:ecs:us-east-2:915236037149:cluster/staging-ecs-cluster",
-        service_name: "-TrainingDat-",
+        service_name: "-Dat2-",
         region: "us-east-2",
-        app_prefix: "mega-maid",
+        app_prefix: "mega_maid",
       ]
     }
 
