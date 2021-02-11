@@ -31,7 +31,7 @@ defmodule ClusterEcs.MixProject do
       {:ex_aws, "~> 2.1.1"},
       {:configparser_ex, "~> 4.0"},
       {:hackney, "~> 1.9"},
-      {:jason, "~> 1.1.0", optional: true},
+      {:jason, ">= 1.1.0", optional: true},
       {:ex_doc, ">= 0.0.0", only: :dev}
     ]
   end
