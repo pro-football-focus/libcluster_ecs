@@ -15,6 +15,6 @@ defmodule ClusterEcsTest do
     }
 
     assert {:ok, ips} = ClusterEcs.Strategy.get_nodes(state)
-    assert MapSet.difference(MapSet.new([:"mega-maid@10.1.123.163", :"mega-maid@10.1.164.239"]), ips) == MapSet.new([])
+    assert MapSet.difference(MapSet.new([:"mega_maid@10.1.171.197", :"mega_maid@10.1.156.253"]), ips) == MapSet.new([])
   end
 end
