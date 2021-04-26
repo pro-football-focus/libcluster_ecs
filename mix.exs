@@ -4,7 +4,7 @@ defmodule ClusterEcs.MixProject do
   def project do
     [
       app: :libcluster_ecs,
-      version: "0.6.0",
+      version: "0.6.2",
       elixir: "~> 1.10",
       name: "libcluster_ecs",
       source_url: "https://github.com/pro-football-focus/libcluster_ecs",
