@@ -109,39 +109,60 @@ defmodule ClusterEcs.Strategy do
 
   @spec get_nodes(State.t()) :: {:ok, [atom()]} | {:error, []}
   def get_nodes(%State{topology: topology, config: config}) do
-    cluster = Keyword.fetch!(config, :cluster)
-    service_name = Keyword.fetch!(config, :service_name)
     region = Keyword.fetch!(config, :region)
+    cluster = Keyword.fetch!(config, :cluster)
+    service_name = Keyword.fetch!(config, :service_name) |> List.wrap()
     app_prefix = Keyword.get(config, :app_prefix, "app")
 
-    cond do
-      service_name != "" and region != "" ->
-        with {:ok, list_service_body} <- list_services(cluster, region),
-             {:ok, service_arns} <- extract_service_arns(list_service_body),
-             {:ok, service_arn} <- find_service_arn(service_arns, service_name),
-             {:ok, list_task_body} <- list_tasks(cluster, service_arn, region),
-             {:ok, task_arns} <- extract_task_arns(list_task_body),
-             {:ok, desc_task_body} <- describe_tasks(cluster, task_arns, region),
-             {:ok, ips} <- extract_ips(desc_task_body) do
-
-          resp = ips |> Enum.map(&(ip_to_nodename(&1, app_prefix)))
-          IO.inspect(resp)
-
-          {:ok, MapSet.new(resp)}
-        else
-          err ->
-            IO.inspect(err)
-            {:error, []}
-        end
-
-      region == "" ->
-        warn(topology, "region could not be fetched!")
+    with(
+      {:config, :cluster, true} <- {:config, :cluster, config_string?(cluster)},
+      {:config, :region, true} <- {:config, :region, config_string?(region)},
+      {:config, :service_name, true} <- {:config, :service_name, name_configured?(service_name)},
+      {:ok, list_service_body} <- list_services(cluster, region),
+      {:ok, service_arns} <- extract_service_arns(list_service_body),
+      {:ok, task_arns} <- get_tasks_for_services(cluster, region, service_arns, service_name),
+      {:ok, desc_task_body} <- describe_tasks(cluster, task_arns, region),
+      {:ok, ips} <- extract_ips(desc_task_body)
+    ) do
+      {:ok, Enum.into(ips, MapSet.new(), & ip_to_nodename(&1, app_prefix))}
+      |> IO.inspect()
+    else
+      {:config, field, _} ->
+        warn(topology, "ECS strategy is selected, but #{field} is not configured correctly!")
         {:error, []}
 
-      :else ->
-        warn(topology, "ECS strategy is selected, but is not configured!")
+      err ->
+        IO.inspect(err)
         {:error, []}
     end
+  end
+
+  defp config_string?(str) when is_binary(str) and str != "", do: true
+
+  defp config_string?(_), do: false
+
+  defp name_configured?([_|_] = names) do
+    Enum.all?(names, & name_configured?/1)
+  end
+
+  defp name_configured?(name), do: config_string?(name)
+
+  defp get_tasks_for_services(cluster, region, service_arns, service_names) do
+    Enum.reduce(service_names, {:ok, []}, fn service_name, acc ->
+      case acc do
+        {:ok, acc_tasks} ->
+          with(
+            {:ok, service_arn} <- find_service_arn(service_arns, service_name),
+            {:ok, list_task_body} <- list_tasks(cluster, service_arn, region),
+            {:ok, task_arns} <- extract_task_arns(list_task_body)
+          ) do
+            {:ok, acc_tasks ++ task_arns}
+          end
+
+        other ->
+          other
+      end
+    end)
   end
 
   defp list_services(cluster, region) do
@@ -215,7 +236,7 @@ defmodule ClusterEcs.Strategy do
       service_arns
       |> Enum.find(&(Regex.match?(regex, &1)))
       |> case do
-        nil -> 
+        nil ->
           Logger.error("no service matching #{service_name} found")
           {:error, "no service matching #{service_name} found"}
         arn ->
@@ -240,4 +261,3 @@ defmodule ClusterEcs.Strategy do
     :"#{app_prefix}@#{ip}"
   end
 end
-
