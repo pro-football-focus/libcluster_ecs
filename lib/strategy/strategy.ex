@@ -125,14 +125,13 @@ defmodule ClusterEcs.Strategy do
       {:ok, ips} <- extract_ips(desc_task_body)
     ) do
       {:ok, Enum.into(ips, MapSet.new(), & ip_to_nodename(&1, app_prefix))}
-      |> IO.inspect()
     else
       {:config, field, _} ->
         warn(topology, "ECS strategy is selected, but #{field} is not configured correctly!")
         {:error, []}
 
       err ->
-        IO.inspect(err)
+        warn(topology, "Error #{inspect(err)} while determining nodes in cluster via ECS strategy.")
         {:error, []}
     end
   end
