@@ -5,7 +5,7 @@ defmodule ClusterEcs.MixProject do
     [
       app: :libcluster_ecs,
       version: "0.6.3",
-      elixir: "~> 1.10",
+      elixir: "~> 1.12",
       name: "libcluster_ecs",
       source_url: "https://github.com/pro-football-focus/libcluster_ecs",
       homepage_url: "https://github.com/pro-football-focus/libcluster_ecs",
@@ -28,7 +28,7 @@ defmodule ClusterEcs.MixProject do
   defp deps do
     [
       {:libcluster, "~> 2.0 or ~> 3.0"},
-      {:ex_aws, "~> 2.2.1"},
+      {:ex_aws, "~> 2.4.1"},
       {:configparser_ex, "~> 4.0"},
       {:hackney, "~> 1.9"},
       {:jason, ">= 1.1.0", optional: true},
