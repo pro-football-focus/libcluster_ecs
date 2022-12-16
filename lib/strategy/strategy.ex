@@ -107,7 +107,7 @@ defmodule ClusterEcs.Strategy do
     {:noreply, state}
   end
 
-  @spec get_nodes(State.t()) :: {:ok, [atom()]} | {:error, []}
+  @spec get_nodes(State.t()) :: {:ok, MapSet.t()} | {:error, any()}
   def get_nodes(%State{topology: topology, config: config}) do
     region = Keyword.fetch!(config, :region)
     cluster = Keyword.fetch!(config, :cluster)
@@ -124,15 +124,17 @@ defmodule ClusterEcs.Strategy do
       {:ok, desc_task_body} <- describe_tasks(cluster, task_arns, region),
       {:ok, ips} <- extract_ips(desc_task_body)
     ) do
-      {:ok, Enum.into(ips, MapSet.new(), & ip_to_nodename(&1, app_prefix))}
+      {:ok, MapSet.new(ips, & ip_to_nodename(&1, app_prefix))}
     else
       {:config, field, _} ->
-        warn(topology, "ECS strategy is selected, but #{field} is not configured correctly!")
-        {:error, []}
+        message = "ECS strategy is selected, but #{field} is not configured correctly!"
+        warn(topology, message)
+        {:error, message}
 
       err ->
-        warn(topology, "Error #{inspect(err)} while determining nodes in cluster via ECS strategy.")
-        {:error, []}
+        message = "Error #{inspect(err)} while determining nodes in cluster via ECS strategy."
+        warn(topology, message)
+        {:error, message}
     end
   end
 
@@ -146,6 +148,7 @@ defmodule ClusterEcs.Strategy do
 
   defp name_configured?(name), do: config_string?(name)
 
+  @spec get_tasks_for_services(binary(), binary(), list(binary()), list(binary())) :: {:ok, list(binary())} | {:error, any()}
   defp get_tasks_for_services(cluster, region, service_arns, service_names) do
     Enum.reduce(service_names, {:ok, []}, fn service_name, acc ->
       case acc do
@@ -168,7 +171,9 @@ defmodule ClusterEcs.Strategy do
     params = %{
       "cluster" => cluster,
     }
-    query("ListServices", params)
+
+    "ListServices"
+    |> query(params)
     |> ExAws.request(region: region)
     |> list_services(cluster, region, [])
   end
@@ -178,7 +183,9 @@ defmodule ClusterEcs.Strategy do
       "cluster" => cluster,
       "nextToken" => next_token,
     }
-    query("ListServices", params)
+
+    "ListServices"
+    |> query(params)
     |> ExAws.request(region: region)
     |> list_services(cluster, region, accum ++ service_arns)
   end
@@ -196,7 +203,9 @@ defmodule ClusterEcs.Strategy do
       "serviceName" => service_arn,
       "desiredStatus" => "RUNNING",
     }
-    query("ListTasks", params)
+
+    "ListTasks"
+    |> query( params)
     |> ExAws.request(region: region)
   end
 
@@ -205,7 +214,9 @@ defmodule ClusterEcs.Strategy do
       "cluster" => cluster,
       "tasks" => task_arns,
     }
-    query("DescribeTasks", params)
+
+    "DescribeTasks"
+    |> query(params)
     |> ExAws.request(region: region)
   end
 

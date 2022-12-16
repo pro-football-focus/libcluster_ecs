@@ -30,7 +30,7 @@ defmodule ClusterEcsTest do
       ]
     }
 
-    assert {:error, []} = ClusterEcs.Strategy.get_nodes(state)
+    assert {:error, "ECS strategy is selected, but service_name is not configured correctly!"} = ClusterEcs.Strategy.get_nodes(state)
   end
 
   # Need to figure out how to stub this out
@@ -46,10 +46,10 @@ defmodule ClusterEcsTest do
     }
 
     assert {:ok, ips} = ClusterEcs.Strategy.get_nodes(state)
-    assert MapSet.size(ips) == 2
-    for ip <- ips do
-      assert to_string(ip) =~ ~r/mega_maid@10\.1\.(\d{1,3})\.(\d{1,3})/
-    end
+    assert MapSet.size(ips) >= 1
+    assert Enum.all?(ips, fn (ip) ->
+      to_string(ip) =~ ~r/mega_maid@10\.1\.(\d{1,3})\.(\d{1,3})/
+    end)
   end
 
   test "gets ips from multiple tasks" do
@@ -64,9 +64,9 @@ defmodule ClusterEcsTest do
     }
 
     assert {:ok, ips} = ClusterEcs.Strategy.get_nodes(state)
-    assert MapSet.size(ips) == 2
-    for ip <- ips do
-      assert to_string(ip) =~ ~r/merlin@10\.1\.(\d{1,3})\.(\d{1,3})/
-    end
+    assert MapSet.size(ips) >= 1
+    assert Enum.all?(ips, fn (ip) ->
+      to_string(ip) =~ ~r/merlin@10\.1\.(\d{1,3})\.(\d{1,3})/
+    end)
   end
 end
