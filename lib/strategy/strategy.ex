@@ -42,7 +42,7 @@ defmodule ClusterEcs.Strategy do
   def init([%State{} = state]) do
     state = state |> Map.put(:meta, MapSet.new())
 
-    {:ok, state, 0}
+    {:ok, load(state)}
   end
 
   # libcluster ~> 2.0
@@ -56,7 +56,7 @@ defmodule ClusterEcs.Strategy do
       meta: MapSet.new([])
     }
 
-    {:ok, state, 0}
+    {:ok, load(state)}
   end
 
   @impl true
@@ -64,10 +64,17 @@ defmodule ClusterEcs.Strategy do
     handle_info(:load, state)
   end
 
-  def handle_info(:load, %State{topology: topology, connect: connect, disconnect: disconnect, list_nodes: list_nodes} = state) do
+  def handle_info(:load, %State{} = state) do
+    {:noreply, load(state)}
+  end
+
+  def handle_info(_, state) do
+    {:noreply, state}
+  end
+
+  defp load(%State{topology: topology, connect: connect, disconnect: disconnect, list_nodes: list_nodes} = state) do
     case get_nodes(state) do
       {:ok, new_nodelist} ->
-        added = MapSet.difference(new_nodelist, state.meta)
         removed = MapSet.difference(state.meta, new_nodelist)
 
         new_nodelist =
@@ -83,7 +90,7 @@ defmodule ClusterEcs.Strategy do
           end
 
         new_nodelist =
-          case Cluster.Strategy.connect_nodes(topology, connect, list_nodes, MapSet.to_list(added)) do
+          case Cluster.Strategy.connect_nodes(topology, connect, list_nodes, MapSet.to_list(new_nodelist)) do
             :ok ->
               new_nodelist
 
@@ -95,16 +102,12 @@ defmodule ClusterEcs.Strategy do
           end
 
         Process.send_after(self(), :load, Keyword.get(state.config, :polling_interval, @default_polling_interval))
-        {:noreply, %{state | :meta => new_nodelist}}
+        %{state | :meta => new_nodelist}
 
       _ ->
         Process.send_after(self(), :load, Keyword.get(state.config, :polling_interval, @default_polling_interval))
-        {:noreply, state}
+        state
     end
-  end
-
-  def handle_info(_, state) do
-    {:noreply, state}
   end
 
   @spec get_nodes(State.t()) :: {:ok, MapSet.t()} | {:error, any()}
